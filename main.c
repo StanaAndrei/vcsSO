@@ -7,7 +7,9 @@
 #include <sys/stat.h>
 #include <string.h>
 #include <errno.h>
-#define MAX_DIR_NAME 50
+#include <time.h>
+#include <stdbool.h>
+#define MAX_DIR_NAME 5000
 #define OPEN_DIR_MODE (S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH)
 
 DIR *openDir(const char name[]) {
@@ -25,15 +27,24 @@ void closeDir(DIR *dir) {
   }
 }
 
-void snapshot(const char path[]) {
-  DIR *dir = openDir(path);
-  for (struct dirent *deBuff; (deBuff = readdir(dir)) != NULL;) {
-    if (strcmp(deBuff->d_name, ".vcs") == 0) {
-      continue;
-    }
-    puts(deBuff->d_name);
+char *getCurrDateTime() {
+  time_t t = time(NULL);
+  struct tm tm = *localtime(&t);
+  static char timeStr[100]; 
+  sprintf(timeStr, "%d-%02d-%02d_%02d:%02d:%02d", tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec);
+  return timeStr;
+}
+
+void snapshot() {
+  char snapTarget[100] = "./.vcs/snapshot_";
+  strcat(snapTarget, getCurrDateTime());
+  if (mkdir(snapTarget, OPEN_DIR_MODE) == -1) {
+      perror("mkdir-snap");
+      exit(1);
   }
-  closeDir(dir);
+  static char command[200];
+  sprintf(command, "rsync -av --progress . %s --exclude .vcs", snapTarget);
+  system(command);
 }
 
 int main(int argc, char *argv[]) {
@@ -42,19 +53,22 @@ int main(int argc, char *argv[]) {
     exit(1);
   }
   
-  static char target[MAX_DIR_NAME];
-  strcpy(target, argv[1]);
-  strcat(target, "/.vcs");
-
+  if (chdir(argv[1])) {
+    perror("chdir");
+    exit(1);
+  }
+  
   DIR *vcsDir;
-  if ((vcsDir = opendir(target)) == NULL && errno == ENOENT) {
-    if (mkdir(target, OPEN_DIR_MODE) == -1) {
+  if ((vcsDir = opendir(".vcs")) == NULL && errno == ENOENT) {
+    if (mkdir(".vcs", OPEN_DIR_MODE) == -1) {
       perror("mkdir");
       exit(1);
     }
   }
 
-  snapshot(argv[1]);
-  closeDir(vcsDir);
+  snapshot();
+  if (vcsDir != NULL) {
+    closeDir(vcsDir);
+  }
   return 0;
 }
