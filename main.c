@@ -27,12 +27,47 @@ void closeDir(DIR *dir) {
   }
 }
 
+int getFD(const char *const fname, int flags, int perm) {
+  int fd = open(fname, flags, perm);
+  if (fd < 0) {
+    perror("");
+    exit(1);
+  }
+  return fd;
+}
+ 
+void closeFD(int fd) {
+  if (close(fd) < 0) {
+    perror("");
+    exit(1);
+  }
+}
+
 char *getCurrDateTime() {
   time_t t = time(NULL);
   struct tm tm = *localtime(&t);
   static char timeStr[100]; 
   sprintf(timeStr, "%d-%02d-%02d_%02d:%02d:%02d", tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec);
   return timeStr;
+}
+
+void iterDirRec(const char dirname[]) {
+  DIR *dir = openDir(dirname);
+  for (struct dirent *deBuff; (deBuff = readdir(dir)) != NULL;) {
+    char *d_name = deBuff->d_name;
+    if (!strcmp(d_name, ".vcs") || !strcmp(d_name, ".") || !strcmp(d_name, "..")) {
+      continue;
+    }
+    puts(d_name);
+    struct stat statBuff;
+    stat(d_name, &statBuff);
+    if (S_ISDIR(statBuff.st_mode)) {
+      iterDirRec(d_name);
+    } else {
+      
+    }
+  }
+  closeDir(dir);
 }
 
 void snapshot() {
@@ -42,18 +77,16 @@ void snapshot() {
       perror("mkdir-snap");
       exit(1);
   }
+  //copy
   static char command[200];
   sprintf(command, "rsync -av --progress . %s --exclude .vcs", snapTarget);
   system(command);
+  //save
+  iterDirRec(".");
 }
 
-int main(int argc, char *argv[]) {
-  if (argc < 2) {
-    fprintf(stderr, "Wrong usage!\n");
-    exit(1);
-  }
-  
-  if (chdir(argv[1])) {
+void solve(const char dirname[]) {
+  if (chdir(dirname)) {
     perror("chdir");
     exit(1);
   }
@@ -70,5 +103,14 @@ int main(int argc, char *argv[]) {
   if (vcsDir != NULL) {
     closeDir(vcsDir);
   }
+}
+
+int main(int argc, char *argv[]) {
+  if (argc < 2) {
+    fprintf(stderr, "Wrong usage!\n");
+    exit(1);
+  }
+  
+  solve(argv[1]);
   return 0;
 }
