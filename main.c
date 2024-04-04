@@ -9,6 +9,9 @@
 #include <errno.h>
 #include <time.h>
 #include <stdbool.h>
+
+#include "argparser.h"
+
 #define MAX_DIR_NAME 5000
 #define OPEN_DIR_MODE (S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH)
 
@@ -105,12 +108,28 @@ void solve(const char dirname[]) {
   }
 }
 
+void wrongUsage() {
+  fprintf(stderr, "Wrong usage!\n");
+  exit(1);
+}
+
 int main(int argc, char *argv[]) {
-  if (argc < 2) {
-    fprintf(stderr, "Wrong usage!\n");
-    exit(1);
+  if (argc < 3) {
+    wrongUsage();
   }
+
+  printf("%d\n", argc);
+  Args args;
+  initArgs(argc, argv, &args);
   
-  solve(argv[1]);
+
+  ArgPair *targets = getVal(&args, "-t");
+  if (targets == NULL) {
+    wrongUsage();
+  }
+
+  for (int i = 0; i < targets->cnt; i++) {
+    solve(targets->values[i]);
+  }
   return 0;
 }
