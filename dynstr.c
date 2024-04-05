@@ -32,5 +32,10 @@ void freeStr(String *string) {
 }
 
 void pop(String *string) {
-    string->buffer[--string->len] = 0;
+    if (string->len == 0) {
+        return;
+    }
+    string->len--, string->cap--;
+    string->buffer[string->len] = 0;
+    string->buffer = (char*)realloc(string->buffer, string->cap);
 }
