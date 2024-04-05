@@ -55,22 +55,33 @@ char *getCurrDateTime() {
   return timeStr;
 }
 
-void iterDirRec(const char dirname[]) {
+void iterDirRec(const char dirname[], String *json) {
   DIR *dir = openDir(dirname);
   for (struct dirent *deBuff; (deBuff = readdir(dir)) != NULL;) {
     char *d_name = deBuff->d_name;
     if (!strncmp(d_name, DIR_PREF, strlen(DIR_PREF)) || !strcmp(d_name, ".") || !strcmp(d_name, "..")) {
       continue;
     }
-    puts(d_name);
     struct stat statBuff;
     stat(d_name, &statBuff);
     if (S_ISDIR(statBuff.st_mode)) {
-      iterDirRec(d_name);
+      append(json, d_name);
+      append(json, ":[");
+      iterDirRec(d_name, json);
+      append(json, "],");
     } else {
-      
+      char tmp[30];
+      append(json, d_name);
+      append(json, ":{size:");
+      sprintf(tmp, "%ld", statBuff.st_size);
+      append(json, tmp);
+      append(json, ",last_modif:\"");
+      append(json, ctime(&statBuff.st_mtime));
+      pop(json);
+      append(json, "\"},");//*/
     }
   }
+  pop(json);
   closeDir(dir);
 }
 
@@ -89,7 +100,17 @@ void snapshot(const char pathToPut[]) {
   sprintf(command, "rsync -av --progress . %s --exclude .vcs", snapTarget);
   system(command);
   //save
-  iterDirRec(".");
+  String json;
+  initStr(&json);
+  append(&json, "[");
+  iterDirRec(".", &json);
+  append(&json, "]");
+
+  int fd = getFD(strcat(snapTarget, ".json"), O_RDWR | O_CREAT, S_IWUSR | S_IRUSR);
+  write(fd, json.buffer, json.len);
+  closeFD(fd);
+
+  freeStr(&json);
 }
 
 void solve(const char dirname[], const char pathToPut[]) {

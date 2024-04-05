@@ -9,5 +9,6 @@ typedef struct {
 void initStr(String *string);
 void append(String *string, const char s[]);
 void freeStr(String *string);
+void pop(String *string);
 
 #endif

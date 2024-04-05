@@ -12,7 +12,7 @@ void append(String *string, const char s[]) {
     int len = strlen(s);
     int newLen = string->len + len;
 
-    if (string->cap <= newLen) {
+    if (string->cap < newLen) {
         string->cap = newLen + 1;
         string->buffer = (char*)realloc(string->buffer, string->cap);
         if (string->buffer == NULL) {
@@ -21,7 +21,7 @@ void append(String *string, const char s[]) {
         }
     }
 
-    strcat(string->buffer, s);
+    strcpy(string->buffer + string->len, s);
     string->len = newLen;
 }
 
@@ -29,4 +29,8 @@ void freeStr(String *string) {
     free(string->buffer);
     string->buffer = NULL;
     string->cap = string->len = 0;
+}
+
+void pop(String *string) {
+    string->buffer[--string->len] = 0;
 }
