@@ -6,7 +6,6 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <string.h>
-#include <errno.h>
 #include <time.h>
 #include <stdbool.h>
 
@@ -15,6 +14,7 @@
 
 #define MAX_DIR_NAME 5000
 #define OPEN_DIR_MODE (S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH)
+#define DIR_PREF ".snapshot_"
 
 DIR *openDir(const char name[]) {
   DIR *dir = opendir(name);
@@ -59,7 +59,7 @@ void iterDirRec(const char dirname[]) {
   DIR *dir = openDir(dirname);
   for (struct dirent *deBuff; (deBuff = readdir(dir)) != NULL;) {
     char *d_name = deBuff->d_name;
-    if (!strcmp(d_name, ".vcs") || !strcmp(d_name, ".") || !strcmp(d_name, "..")) {
+    if (!strncmp(d_name, DIR_PREF, strlen(DIR_PREF)) || !strcmp(d_name, ".") || !strcmp(d_name, "..")) {
       continue;
     }
     puts(d_name);
@@ -74,8 +74,11 @@ void iterDirRec(const char dirname[]) {
   closeDir(dir);
 }
 
-void snapshot() {
-  char snapTarget[100] = "./.vcs/snapshot_";
+void snapshot(const char pathToPut[]) {
+  char snapTarget[100] = "";
+  strcat(snapTarget, pathToPut);
+  strcat(snapTarget, "/");
+  strcat(snapTarget, DIR_PREF);
   strcat(snapTarget, getCurrDateTime());
   if (mkdir(snapTarget, OPEN_DIR_MODE) == -1) {
       perror("mkdir-snap");
@@ -89,24 +92,13 @@ void snapshot() {
   iterDirRec(".");
 }
 
-void solve(const char dirname[]) {
+void solve(const char dirname[], const char pathToPut[]) {
   if (chdir(dirname)) {
     perror("chdir");
     exit(1);
   }
-  
-  DIR *vcsDir;
-  if ((vcsDir = opendir(".vcs")) == NULL && errno == ENOENT) {
-    if (mkdir(".vcs", OPEN_DIR_MODE) == -1) {
-      perror("mkdir");
-      exit(1);
-    }
-  }
 
-  snapshot();
-  if (vcsDir != NULL) {
-    closeDir(vcsDir);
-  }
+  snapshot(pathToPut);
 }
 
 void wrongUsage() {
@@ -119,7 +111,6 @@ int main(int argc, char *argv[]) {
     wrongUsage();
   }
 
-  printf("%d\n", argc);
   Args args;
   initArgs(argc, argv, &args);
   
@@ -129,8 +120,17 @@ int main(int argc, char *argv[]) {
     wrongUsage();
   }
 
-  for (int i = 0; i < targets->cnt; i++) {
-    solve(targets->values[i]);
-  }//*/
+  ArgPair *out = getVal(&args, "-o");
+
+  if (out == NULL) {
+    for (int i = 0; i < targets->cnt; i++) {
+      solve(targets->values[i], ".");
+    }//*/
+  } else {
+    for (int i = 0; i < targets->cnt; i++) {
+      solve(targets->values[i], out->values[0]);
+    }//*/
+  }
+
   return 0;
 }
