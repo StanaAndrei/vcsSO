@@ -11,6 +11,7 @@
 #include <stdbool.h>
 
 #include "argparser.h"
+#include "dynstr.h"
 
 #define MAX_DIR_NAME 5000
 #define OPEN_DIR_MODE (S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH)
@@ -130,6 +131,6 @@ int main(int argc, char *argv[]) {
 
   for (int i = 0; i < targets->cnt; i++) {
     solve(targets->values[i]);
-  }
+  }//*/
   return 0;
 }
