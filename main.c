@@ -8,6 +8,7 @@
 #include <string.h>
 #include <time.h>
 #include <stdbool.h>
+#include <sys/wait.h>
 
 #include "argparser.h"
 #include "dynstr.h"
@@ -85,19 +86,24 @@ void iterDirRec(const char dirname[], String *json) {
   closeDir(dir);
 }
 
-void snapshot(const char pathToPut[]) {
-  char snapTarget[100] = "";
+
+#define TARGET_MAX_LEN 10000
+void snapshot(const char targetDir[], const char pathToPut[]) {
+  char snapTarget[TARGET_MAX_LEN] = "";
   strcat(snapTarget, pathToPut);
   strcat(snapTarget, "/");
   strcat(snapTarget, DIR_PREF);
+  strcat(snapTarget, targetDir);
+  strcat(snapTarget, "_");
   strcat(snapTarget, getCurrDateTime());
   if (mkdir(snapTarget, OPEN_DIR_MODE) == -1) {
+      puts(snapTarget);
       perror("mkdir-snap");
       exit(1);
   }
   //copy
-  static char command[200];
-  sprintf(command, "rsync -av --progress . %s --exclude .vcs", snapTarget);
+  static char command[TARGET_MAX_LEN * 2];
+  sprintf(command, "rsync -av . %s --exclude .vcs", snapTarget);//[--progress]
   system(command);
   //save
   String json;
@@ -110,16 +116,21 @@ void snapshot(const char pathToPut[]) {
   write(fd, json.buffer, json.len);
   closeFD(fd);
 
-  freeStr(&json);
+  freeStr(&json);//*/
 }
 
+#define DIR_NAME_MAX 1024
 void solve(const char dirname[], const char pathToPut[]) {
   if (chdir(dirname)) {
     perror("chdir");
     exit(1);
   }
-
-  snapshot(pathToPut);
+  char targetDir[DIR_NAME_MAX];
+  if (getcwd(targetDir, sizeof(targetDir)) == NULL) {
+    perror("getcwd");
+    exit(1);
+  }
+  snapshot(strrchr(targetDir, '/') + 1, pathToPut);
 }
 
 void wrongUsage() {
@@ -143,15 +154,24 @@ int main(int argc, char *argv[]) {
 
   ArgPair *out = getVal(&args, "-o");
 
-  if (out == NULL) {
-    for (int i = 0; i < targets->cnt; i++) {
-      solve(targets->values[i], ".");
-    }//*/
-  } else {
-    for (int i = 0; i < targets->cnt; i++) {
-      solve(targets->values[i], out->values[0]);
-    }//*/
+  const char *where = ".";
+  if (out != NULL) {
+    where = out->values[0];
   }
 
+  for (int i = 0; i < targets->cnt; i++) {
+      pid_t pid;
+      if ((pid = fork()) < 0) {
+        perror("fork");
+        return 1;
+      }
+      if (pid == 0) {
+        solve(targets->values[i], where);
+        return 0;
+      }
+      int status;
+      wait(&status);
+      printf("Proccess %d exited with code %d.\n", pid, WEXITSTATUS(status));//*/
+    }
   return 0;
 }
