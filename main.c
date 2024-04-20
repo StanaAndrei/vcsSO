@@ -130,7 +130,7 @@ void solve(const char dirname[], const char pathToPut[]) {
     perror("getcwd");
     exit(1);
   }
-  snapshot(strrchr(targetDir, '/') + 1, pathToPut);
+  snapshot(strrchr(targetDir, '/') + 1, pathToPut);//*/
 }
 
 void wrongUsage() {
@@ -169,9 +169,11 @@ int main(int argc, char *argv[]) {
         solve(targets->values[i], where);
         return 0;
       }
-      int status;
-      wait(&status);
-      printf("Proccess %d exited with code %d.\n", pid, WEXITSTATUS(status));//*/
-    }
+  }
+  int status;
+  pid_t pid;
+  while ((pid = wait(&status)) > 0) {
+    printf("Proccess %d exited with code %d.\n", pid, WEXITSTATUS(status));
+  }
   return 0;
 }
