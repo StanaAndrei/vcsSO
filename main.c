@@ -79,7 +79,10 @@ void iterDirRec(const char dirname[], String *json) {
       append(json, ",last_modif:\"");
       append(json, ctime(&statBuff.st_mtime));
       pop(json);
-      append(json, "\"},");//*/
+      append(json, "\", inode_number:");
+      sprintf(tmp, "%ld", statBuff.st_ino);
+      append(json, tmp);
+      append(json, "},");//*/
     }
   }
   pop(json);
