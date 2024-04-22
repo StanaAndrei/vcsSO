@@ -56,6 +56,58 @@ char *getCurrDateTime() {
   return timeStr;
 }
 
+bool hasRights(mode_t perm) {
+  bool ans = false;
+  ans |= (perm & S_IRUSR);
+  ans |= (perm & S_IWUSR);
+  ans |= (perm & S_IXUSR);
+  ans |= (perm & S_IRGRP);
+  ans |= (perm & S_IWGRP);
+  ans |= (perm & S_IXGRP);
+  ans |= (perm & S_IROTH);
+  ans |= (perm & S_IWOTH);
+  ans |= (perm & S_IXOTH);
+  return ans;
+}
+
+#define IS_ASCII(x) (x > 127)
+bool syntacticalAnalysis(const char path[], off_t size) {
+  static const char *DANGER_WORDS[] = {
+    "danger", "risk", "warning"
+  };
+  const size_t DW_LEN = sizeof(DANGER_WORDS) / sizeof(void*);
+  const int fd = getFD(path, O_RDONLY, 0);
+  
+  char *content = (char*)calloc(size, sizeof(char));
+  if (read(fd, content, size) != size) {
+    perror("read");
+    free(content);
+    exit(1);
+  }
+
+  for (size_t i = 0; i < DW_LEN; i++) {
+    if (strstr(content, DANGER_WORDS[i])) {
+      return false;
+    }
+  }
+
+  int nrLines = 0;
+  for (int i = 0; content[i]; i++) {
+    nrLines += (content[i] == '\n');
+  }
+  //add nr lines cond
+
+  for (int i = 0; content[i]; i++) {
+    if (!IS_ASCII(content[i])) {
+      return false;
+    }
+  }
+
+  free(content);
+  closeFD(fd);
+  return true;
+}
+
 void iterDirRec(const char dirname[], String *json) {
   DIR *dir = openDir(dirname);
   for (struct dirent *deBuff; (deBuff = readdir(dir)) != NULL;) {
@@ -71,6 +123,9 @@ void iterDirRec(const char dirname[], String *json) {
       iterDirRec(d_name, json);
       append(json, "],");
     } else {
+      if (!hasRights(statBuff.st_mode)) {
+        syntacticalAnalysis(d_name, statBuff.st_size);
+      }
       char tmp[30];
       append(json, d_name);
       append(json, ":{size:");
