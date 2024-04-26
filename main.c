@@ -35,7 +35,7 @@ void closeDir(DIR *dir) {
 int getFD(const char *const fname, int flags, int perm) {
   int fd = open(fname, flags, perm);
   if (fd < 0) {
-    perror("");
+    perror("open");
     exit(1);
   }
   return fd;
@@ -43,7 +43,7 @@ int getFD(const char *const fname, int flags, int perm) {
  
 void closeFD(int fd) {
   if (close(fd) < 0) {
-    perror("");
+    perror("close");
     exit(1);
   }
 }
@@ -70,27 +70,59 @@ bool hasRights(mode_t perm) {
   return ans;
 }
 
-bool syntacticalAnalysis(const char path[], off_t size) {
-    
+#define SCRIPT_NAME "verify_for_malicious.sh"
+bool syntacticalAnalysis(const char path[]) {
+  const char *const pathCopy = strdup(path);
+  if (!pathCopy) {
+    perror("strdup");
+    exit(1);
+  }
+  const char *argv[] = { SCRIPT_NAME, pathCopy, NULL };
+  const char *envp[] = { NULL };
+  pid_t pid;
+  if ((pid = fork()) < 0) {
+    perror("fork");
+    exit(1);
+  }
+  if (pid == 0) {
+    execve(SCRIPT_NAME, (char *const *)argv, (char *const *)envp);
+    perror("execve");
+    exit(1);
+  }
+  int status;
+  waitpid(pid, &status, 0);
+  fprintf(stderr, "Script (pid: %d) finished with status %d.\n", pid, WEXITSTATUS(status));
+  if (status) {
+    exit(WEXITSTATUS(status));
+  }
+  return 0;
 }
 
 void iterDirRec(const char dirname[], String *json) {
   DIR *dir = openDir(dirname);
   for (struct dirent *deBuff; (deBuff = readdir(dir)) != NULL;) {
-    char *d_name = deBuff->d_name;
+    const char *d_name = deBuff->d_name;
     if (!strncmp(d_name, DIR_PREF, strlen(DIR_PREF)) || !strcmp(d_name, ".") || !strcmp(d_name, "..")) {
       continue;
     }
     struct stat statBuff;
-    stat(d_name, &statBuff);
+    char pathTo[strlen(dirname) + strlen(d_name) + 3];
+    *pathTo = 0;
+    strcat(pathTo, dirname);
+    strcat(pathTo, d_name);
+    if (stat(pathTo, &statBuff) == -1) {
+      perror("stat");
+      exit(1);
+    }
     if (S_ISDIR(statBuff.st_mode)) {
       append(json, d_name);
       append(json, ":[");
-      iterDirRec(d_name, json);
+      strcat(pathTo, "/");
+      iterDirRec(pathTo, json);
       append(json, "],");
     } else {
       if (!hasRights(statBuff.st_mode)) {
-        syntacticalAnalysis(d_name, statBuff.st_size);
+        syntacticalAnalysis(pathTo);
       }
       char tmp[30];
       append(json, d_name);
@@ -114,27 +146,21 @@ void iterDirRec(const char dirname[], String *json) {
 #define TARGET_MAX_LEN 10000
 void snapshot(const char targetDir[], const char pathToPut[]) {
   char snapTarget[TARGET_MAX_LEN] = "";
-  strcat(snapTarget, pathToPut);
-  strcat(snapTarget, "/");
-  strcat(snapTarget, DIR_PREF);
-  strcat(snapTarget, targetDir);
-  strcat(snapTarget, "_");
-  strcat(snapTarget, getCurrDateTime());
-  if (mkdir(snapTarget, OPEN_DIR_MODE) == -1) {
-      puts(snapTarget);
-      perror("mkdir-snap");
-      exit(1);
+  if (pathToPut == NULL) {
+    strcat(snapTarget, targetDir);
+    strcat(snapTarget, DIR_PREF);
+    strcat(snapTarget, getCurrDateTime());
+  } else {
+    strcat(snapTarget, pathToPut);
+    strcat(snapTarget, DIR_PREF);
+    strcat(snapTarget, getCurrDateTime());
   }
-  //copy
-  static char command[TARGET_MAX_LEN * 2];
-  sprintf(command, "rsync -av . %s --exclude .vcs", snapTarget);//[--progress]
-  system(command);
-  //save
+  puts(snapTarget);
   String json;
   initStr(&json);
   append(&json, "[");
-  iterDirRec(".", &json);
-  append(&json, "]");
+  iterDirRec(targetDir, &json);
+  append(&json, "]\n");
 
   int fd = getFD(strcat(snapTarget, ".json"), O_RDWR | O_CREAT, S_IWUSR | S_IRUSR);
   write(fd, json.buffer, json.len);
@@ -145,16 +171,17 @@ void snapshot(const char targetDir[], const char pathToPut[]) {
 
 #define DIR_NAME_MAX 1024
 void solve(const char dirname[], const char pathToPut[]) {
-  if (chdir(dirname)) {
-    perror("chdir");
-    exit(1);
-  }
-  char targetDir[DIR_NAME_MAX];
-  if (getcwd(targetDir, sizeof(targetDir)) == NULL) {
-    perror("getcwd");
-    exit(1);
-  }
-  snapshot(strrchr(targetDir, '/') + 1, pathToPut);//*/
+  // if (chdir(dirname)) {
+  //   perror("chdir");
+  //   exit(1);
+  // }//*/
+  // char targetDir[DIR_NAME_MAX];
+  // if (getcwd(targetDir, sizeof(targetDir)) == NULL) {
+  //   perror("getcwd");
+  //   exit(1);
+  // }
+
+  snapshot(dirname, pathToPut);//*/
 }
 
 void wrongUsage() {
@@ -178,7 +205,7 @@ int main(int argc, char *argv[]) {
 
   ArgPair *out = getVal(&args, "-o");
 
-  const char *where = ".";
+  const char *where = NULL;
   if (out != NULL) {
     where = out->values[0];
   }
