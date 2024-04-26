@@ -1,6 +1,5 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
 #include <fcntl.h>
 #include <dirent.h>
 #include <sys/types.h>
@@ -12,42 +11,9 @@
 
 #include "argparser.h"
 #include "dynstr.h"
-
-#define MAX_FILE_NAME (1 << 8)
-#define MAX_DIR_NAME 5000
-#define OPEN_DIR_MODE (S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH)
-#define DIR_PREF ".snapshot_"
-
-DIR *openDir(const char name[]) {
-  DIR *dir = opendir(name);
-  if (dir == NULL) {
-    perror("opendir");
-    exit(1);
-  }
-  return dir;
-}
-
-void closeDir(DIR *dir) {
-  if (closedir(dir) == -1) {
-    perror("closedir");
-  }
-}
-
-int getFD(const char *const fname, int flags, int perm) {
-  int fd = open(fname, flags, perm);
-  if (fd < 0) {
-    perror("open");
-    exit(1);
-  }
-  return fd;
-}
- 
-void closeFD(int fd) {
-  if (close(fd) < 0) {
-    perror("close");
-    exit(1);
-  }
-}
+#include "futils.h"
+#include "defs.h"
+#include "defs.h"
 
 char *getCurrDateTime() {
   time_t t = time(NULL);
@@ -57,22 +23,6 @@ char *getCurrDateTime() {
   return timeStr;
 }
 
-bool hasRights(mode_t perm) {
-  bool ans = false;
-  ans |= (perm & S_IRUSR);
-  ans |= (perm & S_IWUSR);
-  ans |= (perm & S_IXUSR);
-  ans |= (perm & S_IRGRP);
-  ans |= (perm & S_IWGRP);
-  ans |= (perm & S_IXGRP);
-  ans |= (perm & S_IROTH);
-  ans |= (perm & S_IWOTH);
-  ans |= (perm & S_IXOTH);
-  return ans;
-}
-
-#define SAFE_STR "SAFE"
-#define SCRIPT_NAME "verify_for_malicious.sh"
 bool syntacticalAnalysis(const char path[]) {
   const char *const pathCopy = strdup(path);
   if (!pathCopy) {
@@ -167,8 +117,6 @@ void iterDirRec(const char dirname[], String *json) {
   closeDir(dir);
 }
 
-
-#define TARGET_MAX_LEN 10000
 void snapshot(const char targetDir[], const char pathToPut[]) {
   char snapTarget[TARGET_MAX_LEN] = "";
   if (pathToPut == NULL) {
@@ -194,7 +142,6 @@ void snapshot(const char targetDir[], const char pathToPut[]) {
   freeStr(&json);//*/
 }
 
-#define DIR_NAME_MAX 1024
 void solve(const char dirname[], const char pathToPut[]) {
   snapshot(dirname, pathToPut);//*/
 }
