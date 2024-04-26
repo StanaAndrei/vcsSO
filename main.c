@@ -13,6 +13,7 @@
 #include "argparser.h"
 #include "dynstr.h"
 
+#define MAX_FILE_NAME (1 << 8)
 #define MAX_DIR_NAME 5000
 #define OPEN_DIR_MODE (S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH)
 #define DIR_PREF ".snapshot_"
@@ -70,6 +71,7 @@ bool hasRights(mode_t perm) {
   return ans;
 }
 
+#define SAFE_STR "SAFE"
 #define SCRIPT_NAME "verify_for_malicious.sh"
 bool syntacticalAnalysis(const char path[]) {
   const char *const pathCopy = strdup(path);
@@ -77,6 +79,13 @@ bool syntacticalAnalysis(const char path[]) {
     perror("strdup");
     exit(1);
   }
+
+  int pipefd[2];
+  if (pipe(pipefd) == -1) {
+    perror("pipe");
+    exit(1);
+  }
+
   const char *argv[] = { SCRIPT_NAME, pathCopy, NULL };
   const char *envp[] = { NULL };
   pid_t pid;
@@ -85,17 +94,30 @@ bool syntacticalAnalysis(const char path[]) {
     exit(1);
   }
   if (pid == 0) {
+    closeFD(pipefd[0]);
+    dup2(pipefd[1], STDOUT_FILENO);
+    close(pipefd[1]);
     execve(SCRIPT_NAME, (char *const *)argv, (char *const *)envp);
     perror("execve");
     exit(1);
   }
+
+  closeFD(pipefd[1]);
+  char buffer[MAX_FILE_NAME];
+  ssize_t bytesRead;
+  if ((bytesRead = read(pipefd[0], buffer, MAX_FILE_NAME)) == EOF) {
+    perror("read");
+    exit(1);
+  }
+  buffer[bytesRead - 1] = 0;
+  closeFD(pipefd[0]);
   int status;
   waitpid(pid, &status, 0);
-  fprintf(stderr, "Script (pid: %d) finished with status %d.\n", pid, WEXITSTATUS(status));
+  printf("Script (pid: %d) finished with status %d.\n", pid, WEXITSTATUS(status));
   if (status) {
     exit(WEXITSTATUS(status));
   }
-  return 0;
+  return !strcmp(buffer, SAFE_STR);
 }
 
 void iterDirRec(const char dirname[], String *json) {
@@ -122,7 +144,10 @@ void iterDirRec(const char dirname[], String *json) {
       append(json, "],");
     } else {
       if (!hasRights(statBuff.st_mode)) {
-        syntacticalAnalysis(pathTo);
+        if (!syntacticalAnalysis(pathTo)) {
+          printf("danger %s!!\n", pathTo);
+          continue;
+        }
       }
       char tmp[30];
       append(json, d_name);
@@ -171,16 +196,6 @@ void snapshot(const char targetDir[], const char pathToPut[]) {
 
 #define DIR_NAME_MAX 1024
 void solve(const char dirname[], const char pathToPut[]) {
-  // if (chdir(dirname)) {
-  //   perror("chdir");
-  //   exit(1);
-  // }//*/
-  // char targetDir[DIR_NAME_MAX];
-  // if (getcwd(targetDir, sizeof(targetDir)) == NULL) {
-  //   perror("getcwd");
-  //   exit(1);
-  // }
-
   snapshot(dirname, pathToPut);//*/
 }
 
