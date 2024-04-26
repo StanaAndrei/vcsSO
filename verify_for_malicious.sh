@@ -13,6 +13,7 @@ DANGER_WORDS=("corrupted" "dangerous" "risk" "attack" "malware" "malicious")
 for word in "${DANGER_WORDS[@]}"; do
     if [[ $content == *"$word"* ]]; then
         echo $1
+        chmod 000 $1
         exit 0
     fi
 done
@@ -26,6 +27,7 @@ for i in $(seq 0 $((${#content} - 1))); do
     ord=$(getOrd "$char")
     if [ $ord -gt 127 ]; then
         echo $1
+        chmod 000 $1
         exit 0
     fi
 done

@@ -44,3 +44,23 @@ bool hasRights(mode_t perm) {
   ans |= (perm & S_IXOTH);
   return ans;
 }
+
+void moveFile(const char source[], const char dest[], const size_t size) {
+    int fd1 = getFD(source, O_RDONLY, 0);
+    char buffer[size];
+    if (read(fd1, buffer, size) == EOF) {
+        perror("read");
+        exit(1);
+    }
+    closeFD(fd1);
+    int fd2 = getFD(dest, O_RDWR | O_CREAT, S_IWUSR | S_IRUSR);
+    if (write(fd2, buffer, size) != size) {
+        perror("write");
+        exit(1);
+    }
+    closeFD(fd2);
+    if (remove(source) != 0) {
+        perror("remove");
+        exit(1);
+    }
+}

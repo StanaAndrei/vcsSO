@@ -70,7 +70,7 @@ bool syntacticalAnalysis(const char path[]) {
   return !strcmp(buffer, SAFE_STR);
 }
 
-void iterDirRec(const char dirname[], String *json) {
+void iterDirRec(const char dirname[], String *json, const char safeSpace[]) {
   DIR *dir = openDir(dirname);
   for (struct dirent *deBuff; (deBuff = readdir(dir)) != NULL;) {
     const char *d_name = deBuff->d_name;
@@ -90,12 +90,16 @@ void iterDirRec(const char dirname[], String *json) {
       append(json, d_name);
       append(json, ":[");
       strcat(pathTo, "/");
-      iterDirRec(pathTo, json);
+      iterDirRec(pathTo, json, safeSpace);
       append(json, "],");
     } else {
       if (!hasRights(statBuff.st_mode)) {
         if (!syntacticalAnalysis(pathTo)) {
-          printf("danger %s!!\n", pathTo);
+          char tmp[strlen(safeSpace) + strlen(d_name) + 1];
+          *tmp = 0;
+          strcat(tmp, safeSpace);
+          strcat(tmp, d_name);
+          moveFile(pathTo, tmp, statBuff.st_size);
           continue;
         }
       }
@@ -117,7 +121,7 @@ void iterDirRec(const char dirname[], String *json) {
   closeDir(dir);
 }
 
-void snapshot(const char targetDir[], const char pathToPut[]) {
+void snapshot(const char targetDir[], const char pathToPut[], const char safeSpace[]) {
   char snapTarget[TARGET_MAX_LEN] = "";
   if (pathToPut == NULL) {
     strcat(snapTarget, targetDir);
@@ -132,7 +136,7 @@ void snapshot(const char targetDir[], const char pathToPut[]) {
   String json;
   initStr(&json);
   append(&json, "[");
-  iterDirRec(targetDir, &json);
+  iterDirRec(targetDir, &json, safeSpace);
   append(&json, "]\n");
 
   int fd = getFD(strcat(snapTarget, ".json"), O_RDWR | O_CREAT, S_IWUSR | S_IRUSR);
@@ -140,10 +144,6 @@ void snapshot(const char targetDir[], const char pathToPut[]) {
   closeFD(fd);
 
   freeStr(&json);//*/
-}
-
-void solve(const char dirname[], const char pathToPut[]) {
-  snapshot(dirname, pathToPut);//*/
 }
 
 void wrongUsage() {
@@ -161,17 +161,13 @@ int main(int argc, char *argv[]) {
   
 
   ArgPair *targets = getVal(&args, "-t");
-  if (targets == NULL) {
+  ArgPair *safeSpaceArg = getVal(&args, "-s");
+  if (targets == NULL || safeSpaceArg == NULL) {
     wrongUsage();
   }
 
   ArgPair *out = getVal(&args, "-o");
-
-  const char *where = NULL;
-  if (out != NULL) {
-    where = out->values[0];
-  }
-
+  const char *where = ((out == NULL) ? NULL : out->values[0]);
   for (int i = 0; i < targets->cnt; i++) {
       pid_t pid;
       if ((pid = fork()) < 0) {
@@ -179,7 +175,7 @@ int main(int argc, char *argv[]) {
         return 1;
       }
       if (pid == 0) {
-        solve(targets->values[i], where);
+        snapshot(targets->values[i], where, safeSpaceArg->values[0]);
         return 0;
       }
   }

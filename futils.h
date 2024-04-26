@@ -15,10 +15,11 @@
 #define MAX_DIR_NAME 5000
 #define OPEN_DIR_MODE (S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH)
 
-DIR *openDir(const char name[]);
-void closeDir(DIR *dir);
-int getFD(const char *const fname, int flags, int perm);
-void closeFD(int fd);
-bool hasRights(mode_t perm);
+DIR *openDir(const char[]);
+void closeDir(DIR*);
+int getFD(const char *const, int, int);
+void closeFD(int);
+bool hasRights(mode_t);
+void moveFile(const char[], const char[], const size_t);
 
 #endif
