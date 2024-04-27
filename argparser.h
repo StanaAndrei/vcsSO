@@ -2,7 +2,7 @@
 #define __ARGPARSER_H__
 
 #define MAX_FLAG_VALUES 15
-#define MAX_ARGS 10
+#define MAX_ARGS 15
  
 
 typedef struct {

@@ -20,6 +20,7 @@ void closeDir(DIR*);
 int getFD(const char *const, int, int);
 void closeFD(int);
 bool hasRights(mode_t);
-void moveFile(const char[], const char[], const size_t);
+void writeHelper(int, void*, size_t);
+ssize_t readHelper(int, void*, size_t);
 
 #endif
