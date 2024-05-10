@@ -103,7 +103,7 @@ void iterDirRec(const char dirname[], String *json, const char safeSpace[], int 
   closeDir(dir);
 }
 
-int snapshot(const char targetDir[], const char pathToPut[], const char safeSpace[]) {
+int snapshot(const char targetDir[], const char pathToPut[], const char safeSpace[], int i) {
   char snapTarget[TARGET_MAX_LEN] = "";
   if (pathToPut == NULL) {
     strcat(snapTarget, targetDir);
@@ -113,6 +113,12 @@ int snapshot(const char targetDir[], const char pathToPut[], const char safeSpac
     strcat(snapTarget, pathToPut);
     strcat(snapTarget, DIR_PREF);
     strcat(snapTarget, getCurrDateTime());
+  }
+
+  {
+    char tmp[10] = {0};
+    sprintf(tmp, "_(%d)", i);
+    strcat(snapTarget, tmp);
   }
   puts(snapTarget);
   String json;
@@ -160,7 +166,7 @@ int main(int argc, char *argv[]) {
   for (int i = 0; i < numProcs; i++) {
       pid_t pid = getForkPID();
       if (pid == 0) {
-        int potDanger = snapshot(targets->values[i], where, safeSpaceArg->values[0]);
+        int potDanger = snapshot(targets->values[i], where, safeSpaceArg->values[0], i);
         closeFD(pipefd[i][0]);
         writeHelper(pipefd[i][1], &potDanger, sizeof(potDanger));
         closeFD(pipefd[i][1]);
