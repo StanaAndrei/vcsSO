@@ -3,6 +3,7 @@
 DIR *openDir(const char name[]) {
   DIR *dir = opendir(name);
   if (dir == NULL) {
+    puts(name);
     perror("opendir");
     exit(1);
   }

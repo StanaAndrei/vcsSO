@@ -119,8 +119,8 @@ int snapshot(const char targetDir[], const char pathToPut[], const char safeSpac
     char tmp[10] = {0};
     sprintf(tmp, "_(%d)", i);
     strcat(snapTarget, tmp);
-  }
-  puts(snapTarget);
+  }//*/
+  //puts(snapTarget);
   String json;
   initStr(&json);
   append(&json, "[");
