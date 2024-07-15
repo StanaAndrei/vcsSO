@@ -20,8 +20,8 @@ void initArgs(int argc, char *argv[], Args *args) {
         }
         p->cnt = j;
         cnt++;
-        has = true;//*/
-      }//*/
+        has = true;
+      }
       if (!has) {
         fprintf(stderr, "Missing arg!\n");
         exit(1);
